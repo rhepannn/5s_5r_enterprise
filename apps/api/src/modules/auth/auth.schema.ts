@@ -1,13 +1,14 @@
 import { z } from 'zod';
 
 export const loginSchema = z.object({
-  email: z.string().email('Email tidak valid'),
+  // trim + lowercase agar spasi/kapitalisasi saat copy-paste tidak bikin login gagal
+  email: z.string().trim().toLowerCase().email('Email tidak valid'),
   password: z.string().min(1, 'Password wajib diisi'),
 });
 
 export const registerSchema = z.object({
-  name: z.string().min(2, 'Nama minimal 2 karakter').max(100),
-  email: z.string().email('Email tidak valid'),
+  name: z.string().trim().min(2, 'Nama minimal 2 karakter').max(100),
+  email: z.string().trim().toLowerCase().email('Email tidak valid'),
   password: z
     .string()
     .min(8, 'Password minimal 8 karakter')
