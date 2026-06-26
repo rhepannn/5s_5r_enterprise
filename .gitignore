@@ -1,0 +1,40 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime
+.DS_Store
+*.pem
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Prisma
+apps/api/prisma/migrations/
+
+# Build artifacts
+apps/web/dist/
+apps/api/dist/
+
+# Uploads
+apps/api/uploads/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Secrets — Firebase service account
+firebase-sa.json
+**/firebase-adminsdk-*.json
+**/*-service-account*.json

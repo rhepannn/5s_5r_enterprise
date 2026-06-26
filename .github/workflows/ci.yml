@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  api-test:
+    name: API Lint, Build & Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: apps/api
+        run: npm install
+
+      - name: Generate Prisma Client
+        working-directory: apps/api
+        run: npx prisma generate
+
+      - name: Run migrations
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+
+      - name: Build
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Run tests
+        working-directory: apps/api
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: test-jwt-secret-min-32-characters-long
+          JWT_REFRESH_SECRET: test-refresh-secret-min-32-chars-long
+
+  web-build:
+    name: Web Lint & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: apps/web
+        run: npm install
+
+      - name: Build
+        working-directory: apps/web
+        run: npm run build

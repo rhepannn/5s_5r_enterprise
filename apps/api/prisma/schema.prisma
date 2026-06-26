@@ -1,0 +1,675 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  SUPERADMIN
+  ADMIN_5S
+  AUDITOR
+  KEPALA_DIVISI
+  PIC
+  ANGGOTA
+}
+
+enum PilarType {
+  RINGKAS
+  RAPI
+  RESIK
+  RAWAT
+  RAJIN
+}
+
+enum DivisionCategory {
+  PRODUKSI
+  KANTOR
+  GUDANG
+}
+
+enum AreaCategory {
+  PRODUKSI
+  KANTOR
+  GUDANG
+  LABORATORIUM
+  OUTDOOR
+}
+
+enum AuditType {
+  MANDIRI
+  INTERNAL
+  CROSS
+  SURPRISE
+}
+
+enum AuditStatus {
+  SCHEDULED
+  IN_PROGRESS
+  PENDING_REVIEW
+  COMPLETED
+  APPROVED
+  REJECTED
+}
+
+enum ScheduleFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+}
+
+enum ImprovementStatus {
+  OPEN
+  IN_PROGRESS
+  VERIFICATION_NEEDED
+  CLOSED
+  REJECTED
+}
+
+enum PeriodType {
+  MONTHLY
+  QUARTERLY
+  SEMESTER
+  ANNUAL
+}
+
+enum OKRLevel {
+  COMPANY
+  DIVISION
+}
+
+enum OKRStatus {
+  ON_TRACK
+  AT_RISK
+  BEHIND
+  COMPLETED
+}
+
+enum QCCStatus {
+  PLAN
+  DO
+  CHECK
+  ACT
+  COMPLETED
+}
+
+enum KaizenStatus {
+  OPEN
+  ADOPTED
+  REJECTED
+}
+
+enum ProperRank {
+  EMAS
+  HIJAU
+  BIRU
+  MERAH
+  HITAM
+}
+
+enum PermitStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+}
+
+enum IsoStandard {
+  ISO_9001
+  ISO_14001
+  ISO_45001
+}
+
+enum BalanceType {
+  LIMBAH_B3
+  LIMBAH_NON_B3
+  AIR
+  ENERGI
+}
+
+enum ProblemCategory {
+  KEBERSIHAN
+  PENATAAN
+  PELABELAN
+  KESELAMATAN
+  EFISIENSI
+}
+
+// ============================================================
+// ORGANISASI & USER
+// ============================================================
+
+model Company {
+  id          String        @id @default(cuid())
+  name        String
+  code        String        @unique
+  logo        String?
+  address     String?
+  phone       String?
+  email       String?
+  plants      Plant[]
+  users       User[]
+  periods     AuditPeriod[]
+  kpiTargets  KPITarget[]
+  okrs        OKR[]
+  properScores ProperScore[]
+  permits     EnvironmentPermit[]
+  envBalances EnvironmentBalance[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("companies")
+}
+
+model Plant {
+  id          String       @id @default(cuid())
+  name        String
+  code        String
+  address     String?
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId   String
+  departments Department[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([companyId, code])
+  @@map("plants")
+}
+
+model Department {
+  id        String     @id @default(cuid())
+  name      String
+  code      String
+  plant     Plant      @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  plantId   String
+  divisions Division[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([plantId, code])
+  @@map("departments")
+}
+
+model Division {
+  id            String           @id @default(cuid())
+  name          String
+  code          String
+  category      DivisionCategory
+  department    Department       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  departmentId  String
+  areas         WorkArea[]
+  users         User[]
+  auditSessions AuditSession[]
+  auditSchedules AuditSchedule[]
+  improvements  Improvement[]
+  scores        DivisionScore[]
+  kpiTargets    KPITarget[]
+  okrs          OKR[]
+  qccProjects   QCCProject[]
+  kaizenIdeas   KaizenIdea[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([departmentId, code])
+  @@map("divisions")
+}
+
+model WorkArea {
+  id         String        @id @default(cuid())
+  name       String
+  code       String
+  category   AreaCategory
+  division   Division      @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  divisionId String
+  latitude   Float?
+  longitude  Float?
+  isActive   Boolean       @default(true)
+  audits     AuditSession[]
+  schedules  AuditSchedule[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([divisionId, code])
+  @@map("work_areas")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         UserRole      @default(ANGGOTA)
+  company      Company       @relation(fields: [companyId], references: [id])
+  companyId    String
+  division     Division?     @relation(fields: [divisionId], references: [id])
+  divisionId   String?
+  phone        String?
+  avatar       String?
+  fcmToken     String?
+  isActive     Boolean       @default(true)
+  lastLoginAt  DateTime?
+  refreshTokens RefreshToken[]
+  audits        AuditSession[]
+  auditSchedules AuditSchedule[]
+  improvements  Improvement[]
+  badges        UserBadge[]
+  kaizenIdeas   KaizenIdea[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+// ============================================================
+// AUDIT
+// ============================================================
+
+model AuditPeriod {
+  id        String         @id @default(cuid())
+  name      String
+  type      PeriodType
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean        @default(true)
+  company   Company        @relation(fields: [companyId], references: [id])
+  companyId String
+  sessions  AuditSession[]
+  schedules AuditSchedule[]
+  scores    DivisionScore[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("audit_periods")
+}
+
+model ChecklistTemplate {
+  id           String       @id @default(cuid())
+  name         String
+  areaCategory AreaCategory
+  pilar        PilarType
+  question     String
+  guidance     String?
+  isProperTag  Boolean      @default(false)
+  isoClause    String?
+  sortOrder    Int          @default(0)
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("checklist_templates")
+}
+
+model AuditSession {
+  id                 String               @id @default(cuid())
+  type               AuditType
+  status             AuditStatus          @default(SCHEDULED)
+  scheduledAt        DateTime
+  startedAt          DateTime?
+  completedAt        DateTime?
+  reviewedAt         DateTime?
+  approvedAt         DateTime?
+  rejectedAt         DateTime?
+  rejectionReason    String?
+  reviewedById       String?
+  approvedById       String?
+  surpriseMultiplier Float                @default(1.0)
+  area               WorkArea             @relation(fields: [areaId], references: [id])
+  areaId             String
+  division           Division             @relation(fields: [divisionId], references: [id])
+  divisionId         String
+  auditor            User                 @relation(fields: [auditorId], references: [id])
+  auditorId          String
+  period             AuditPeriod          @relation(fields: [periodId], references: [id])
+  periodId           String
+  checklistItems     AuditChecklistItem[]
+  totalScore         Float?
+  notes              String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@map("audit_sessions")
+}
+
+model AuditChecklistItem {
+  id          String       @id @default(cuid())
+  pilar       PilarType
+  question    String
+  score       Int?
+  notes       String?
+  photos      String[]
+  isProperTag Boolean      @default(false)
+  isoClause   String?
+  session     AuditSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId   String
+  templateId  String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("audit_checklist_items")
+}
+
+model AuditSchedule {
+  id          String            @id @default(cuid())
+  name        String
+  type        AuditType         @default(INTERNAL)
+  frequency   ScheduleFrequency
+  dayOfMonth  Int?              // 1-28 untuk MONTHLY/QUARTERLY
+  dayOfWeek   Int?              // 0-6 (0=Minggu) untuk WEEKLY
+  hour        Int               @default(8) // jam pembuatan sesi (0-23)
+  area        WorkArea          @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  areaId      String
+  division    Division          @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  divisionId  String
+  auditor     User              @relation(fields: [auditorId], references: [id])
+  auditorId   String
+  period      AuditPeriod?      @relation(fields: [periodId], references: [id])
+  periodId    String?
+  isActive    Boolean           @default(true)
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("audit_schedules")
+}
+
+model AuditTrail {
+  id         String   @id @default(cuid())
+  entity     String   // "AuditSession", "Improvement", dll
+  entityId   String
+  action     String   // CREATE | STATUS_CHANGE | SCORE_UPDATE | APPROVE | REJECT | SUBMIT
+  fromStatus String?
+  toStatus   String?
+  changes    Json?
+  userId     String
+  userName   String
+  userRole   UserRole
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@map("audit_trails")
+}
+
+// ============================================================
+// BEFORE / AFTER IMPROVEMENT
+// ============================================================
+
+model Improvement {
+  id                String            @id @default(cuid())
+  code              String            @unique
+  foundAt           DateTime          @default(now())
+  division          Division          @relation(fields: [divisionId], references: [id])
+  divisionId        String
+  pilarTags         PilarType[]
+  problemCategory   ProblemCategory
+  description       String
+  rootCause         String
+  actions           String
+  photoBefore       String[]
+  photoAfter        String[]
+  pic               User              @relation(fields: [picId], references: [id])
+  picId             String
+  targetDate        DateTime
+  actualDate        DateTime?
+  estimatedCost     Float?
+  status            ImprovementStatus @default(OPEN)
+  bonusPoints       Int               @default(5)
+  isProperEvidence  Boolean           @default(false)
+  isBestPractice    Boolean           @default(false)  // masuk Best Practice Library
+  isoClause         String?
+  isoClauses        String[]          @default([])  // multi-tag klausul ISO
+  latitude          Float?
+  longitude         Float?
+  verifiedAt        DateTime?
+  verifiedById      String?
+  rejectionReason   String?
+  qccProjectId      String?
+  qccProject        QCCProject?       @relation(fields: [qccProjectId], references: [id])
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("improvements")
+}
+
+// ============================================================
+// KPI / OKR
+// ============================================================
+
+model KPITarget {
+  id         String    @id @default(cuid())
+  company    Company   @relation(fields: [companyId], references: [id])
+  companyId  String
+  division   Division? @relation(fields: [divisionId], references: [id])
+  divisionId String?
+  pilar      PilarType
+  indicator  String
+  target     Float
+  unit       String    @default("%")
+  period     String
+  actual     Float?
+  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime  @default(now())
+
+  @@map("kpi_targets")
+}
+
+model OKR {
+  id         String        @id @default(cuid())
+  level      OKRLevel
+  company    Company       @relation(fields: [companyId], references: [id])
+  companyId  String
+  division   Division?     @relation(fields: [divisionId], references: [id])
+  divisionId String?
+  objective  String
+  quarter    String
+  keyResults OKRKeyResult[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@map("okrs")
+}
+
+model OKRKeyResult {
+  id     String    @id @default(cuid())
+  okr    OKR       @relation(fields: [okrId], references: [id], onDelete: Cascade)
+  okrId  String
+  title  String
+  target Float
+  actual Float     @default(0)
+  unit   String
+  status OKRStatus @default(ON_TRACK)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("okr_key_results")
+}
+
+// ============================================================
+// KOMPETISI & SCORING
+// ============================================================
+
+model DivisionScore {
+  id                 String           @id @default(cuid())
+  division           Division         @relation(fields: [divisionId], references: [id])
+  divisionId         String
+  period             AuditPeriod      @relation(fields: [periodId], references: [id])
+  periodId           String
+  auditScore         Float            @default(0)
+  beforeAfterScore   Float            @default(0)
+  innovationBonus    Float            @default(0)
+  consistencyScore   Float            @default(0)
+  surpriseScore      Float            @default(0)
+  environmentScore   Float            @default(0)
+  baseScore          Float            @default(0)  // skor berbobot 0-100 (sebelum bonus diskrit)
+  bonusPoints        Float            @default(0)  // poin bonus tambahan (OKR/QCC/konsistensi)
+  totalScore         Float            @default(0)  // baseScore + bonusPoints (skor ranking final)
+  projectedScore     Float            @default(0)  // proyeksi skor akhir periode
+  rank               Int?
+  rankCategory       DivisionCategory
+  updatedAt          DateTime         @updatedAt
+  createdAt          DateTime         @default(now())
+
+  @@unique([divisionId, periodId])
+  @@map("division_scores")
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  badgeType String
+  earnedAt  DateTime @default(now())
+  metadata  Json?
+
+  @@map("user_badges")
+}
+
+// ============================================================
+// QCC
+// ============================================================
+
+model QCCProject {
+  id           String        @id @default(cuid())
+  title        String
+  division     Division      @relation(fields: [divisionId], references: [id])
+  divisionId   String
+  status       QCCStatus     @default(PLAN)
+  members      String[]
+  startDate    DateTime
+  targetDate   DateTime
+  completedAt  DateTime?
+  problemDesc  String
+  rootCause    String?
+  solution     String?
+  savingCost   Float?
+  bonusPoints  Int           @default(15)
+  toolsData    Json?         // data 7 QCC tools: fishbone, pareto, controlChart, dll
+  improvements Improvement[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("qcc_projects")
+}
+
+model KaizenIdea {
+  id            String       @id @default(cuid())
+  title         String
+  description   String
+  division      Division     @relation(fields: [divisionId], references: [id])
+  divisionId    String
+  submittedBy   User         @relation(fields: [submittedById], references: [id])
+  submittedById String
+  status        KaizenStatus @default(OPEN)
+  voteCount     Int          @default(0)
+  estimatedSaving Float?
+  qccProjectId  String?      // diisi jika diadopsi jadi proyek QCC
+  votes         KaizenVote[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("kaizen_ideas")
+}
+
+model KaizenVote {
+  id        String     @id @default(cuid())
+  idea      KaizenIdea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  ideaId    String
+  userId    String
+  createdAt DateTime   @default(now())
+
+  @@unique([ideaId, userId])
+  @@map("kaizen_votes")
+}
+
+// ============================================================
+// PROPER KLHK
+// ============================================================
+
+model ProperScore {
+  id            String      @id @default(cuid())
+  company       Company     @relation(fields: [companyId], references: [id])
+  companyId     String
+  period        String
+  currentRank   ProperRank
+  targetRank    ProperRank
+  projectedRank ProperRank?
+  scores        Json
+  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime    @default(now())
+
+  @@map("proper_scores")
+}
+
+model EnvironmentPermit {
+  id         String      @id @default(cuid())
+  company    Company     @relation(fields: [companyId], references: [id])
+  companyId  String
+  type       String
+  name       String
+  number     String
+  issueDate  DateTime
+  expiryDate DateTime
+  fileUrl    String?
+  status     PermitStatus @default(ACTIVE)
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@map("environment_permits")
+}
+
+model EnvironmentBalance {
+  id        String      @id @default(cuid())
+  company   Company     @relation(fields: [companyId], references: [id])
+  companyId String
+  period    String
+  type      BalanceType
+  data      Json
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@map("environment_balances")
+}
+
+model FloorPlan {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  imageUrl  String
+  pins      Json     @default("[]")  // array {x,y,label,improvementId?,type}
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("floor_plans")
+}
+
+model IsoClause {
+  id          String      @id @default(cuid())
+  standard    IsoStandard
+  code        String      // mis. "8.5.1"
+  title       String
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+
+  @@unique([standard, code])
+  @@map("iso_clauses")
+}
