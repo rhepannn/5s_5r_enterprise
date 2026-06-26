@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm run build -w apps/web",
+  "outputDirectory": "apps/web/dist",
+  "installCommand": "npm install",
+  "rewrites": [
+    { "source": "/((?!assets/|icon-|.*\\.[a-zA-Z0-9]+$).*)", "destination": "/index.html" }
+  ]
+}
