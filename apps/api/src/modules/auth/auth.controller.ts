@@ -8,18 +8,23 @@ import {
 } from './auth.schema';
 import { successResponse } from '@/utils/response';
 import { AppError } from '@/middlewares/errorHandler';
+import { env, isProd } from '@/config/env';
+import type { CookieOptions } from 'express';
+
+// Opsi cookie refresh token. sameSite='none' (lintas-domain) mewajibkan secure=true.
+const refreshCookieOptions: CookieOptions = {
+  httpOnly: true,
+  secure: env.COOKIE_SAMESITE === 'none' ? true : isProd,
+  sameSite: env.COOKIE_SAMESITE,
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 hari
+};
 
 export async function loginHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const input = loginSchema.parse(req.body);
     const result = await authService.login(input);
 
-    res.cookie('refreshToken', result.tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    res.cookie('refreshToken', result.tokens.refreshToken, refreshCookieOptions);
 
     successResponse(res, {
       accessToken: result.tokens.accessToken,
@@ -35,12 +40,7 @@ export async function registerHandler(req: Request, res: Response, next: NextFun
     const input = registerSchema.parse(req.body);
     const result = await authService.register(input);
 
-    res.cookie('refreshToken', result.tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('refreshToken', result.tokens.refreshToken, refreshCookieOptions);
 
     successResponse(res, {
       accessToken: result.tokens.accessToken,
@@ -58,12 +58,7 @@ export async function refreshHandler(req: Request, res: Response, next: NextFunc
 
     const tokens = await authService.refreshAccessToken(token);
 
-    res.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('refreshToken', tokens.refreshToken, refreshCookieOptions);
 
     successResponse(res, { accessToken: tokens.accessToken }, 'Token diperbarui');
   } catch (err) {
@@ -76,7 +71,7 @@ export async function logoutHandler(req: Request, res: Response, next: NextFunct
     const token = req.cookies?.refreshToken;
     if (token) await authService.logout(token);
 
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', { httpOnly: true, secure: refreshCookieOptions.secure, sameSite: env.COOKIE_SAMESITE });
     successResponse(res, null, 'Logout berhasil');
   } catch (err) {
     next(err);

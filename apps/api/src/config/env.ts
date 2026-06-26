@@ -7,6 +7,9 @@ export const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   API_PORT: parseInt(process.env.API_PORT || '3001', 10),
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+  // Cookie refresh token. Untuk frontend & backend BEDA domain (mis. Vercel + Railway),
+  // set COOKIE_SAMESITE=none (browser butuh ini + secure agar cookie lintas-situs terkirim).
+  COOKIE_SAMESITE: (process.env.COOKIE_SAMESITE as 'strict' | 'lax' | 'none') || 'strict',
 
   JWT_SECRET: process.env.JWT_SECRET || 'fallback-secret-change-in-production',
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret-change-in-production',

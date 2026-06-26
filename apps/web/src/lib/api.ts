@@ -1,8 +1,9 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/stores/authStore';
+import { API_BASE } from '@/lib/config';
 
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -45,7 +46,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const res = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
+        const res = await axios.post(`${API_BASE}/auth/refresh`, {}, { withCredentials: true });
         const newToken = res.data.data.accessToken;
         useAuthStore.getState().setAccessToken(newToken);
         processQueue(null, newToken);
